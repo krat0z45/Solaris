@@ -1,4 +1,3 @@
-
 'use client';
 
 import {
@@ -14,16 +13,15 @@ import {
   Briefcase,
   Users,
   Settings,
-  Sun,
   LogOut,
   CheckSquare,
 } from "lucide-react";
 import Link from "next/link";
-import { Button } from "../ui/button";
 import { useUser } from "@/firebase";
 import { signOut } from "firebase/auth";
 import { useAuth } from "@/firebase";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 
 
 const menuItems = [
@@ -54,12 +52,22 @@ export default function AppSidebar() {
     <Sidebar>
       <SidebarHeader className="p-4 justify-center">
         <Link href="/dashboard" className="flex items-center gap-2">
-          <Button variant="ghost" size="icon" className="text-primary bg-primary/10">
-            <Sun />
-          </Button>
-          <span className="text-xl font-semibold group-data-[state=collapsed]:hidden">
-            Solaris
-          </span>
+          <Image
+            src="https://pouch.jumpshare.com/preview/akfEhl0qn64LsBVv8tCKgDgwQorY8vckwEXk1QhGk_Y-9thI1psBLRNHJGAr_Q8MFetchZJ0z2lsVOyvnmkczikrLufbBTH2Y35yuDsZHm4"
+            width={120}
+            height={40}
+            alt="Acciona Logo"
+            className="group-data-[state=expanded]:block hidden dark:invert"
+            unoptimized
+          />
+           <Image
+            src="https://pouch.jumpshare.com/preview/akfEhl0qn64LsBVv8tCKgDgwQorY8vckwEXk1QhGk_Y-9thI1psBLRNHJGAr_Q8MFetchZJ0z2lsVOyvnmkczikrLufbBTH2Y35yuDsZHm4"
+            width={40}
+            height={40}
+            alt="Acciona Logo"
+            className="group-data-[state=collapsed]:block hidden dark:invert"
+            unoptimized
+          />
         </Link>
       </SidebarHeader>
 
