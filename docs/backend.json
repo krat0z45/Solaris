@@ -1,0 +1,286 @@
+
+{
+  "entities": {
+    "User": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "User",
+      "type": "object",
+      "description": "Represents a user within the Solaris Manager application.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the user entity."
+        },
+        "name": {
+          "type": "string",
+          "description": "The user's full name."
+        },
+        "email": {
+          "type": "string",
+          "description": "The user's email address.",
+          "format": "email"
+        },
+        "role": {
+          "type": "string",
+          "description": "The user's role within the application (e.g., 'admin', 'manager')."
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "email"
+      ]
+    },
+    "Client": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Client",
+      "type": "object",
+      "description": "Represents a client company that Solaris Manager works with.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the client entity."
+        },
+        "name": {
+          "type": "string",
+          "description": "The client's company name."
+        },
+        "email": {
+          "type": "string",
+          "description": "The client's email address.",
+          "format": "email"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "email"
+      ]
+    },
+    "Project": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Project",
+      "type": "object",
+      "description": "Represents a project being managed by Solaris Manager.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the project entity."
+        },
+        "name": {
+          "type": "string",
+          "description": "The name of the project."
+        },
+        "projectType": {
+          "type": "string",
+          "description": "The type of project (e.g., solar, wind, boiler, lighting)."
+        },
+        "clientId": {
+          "type": "string",
+          "description": "Reference to Client. (Relationship: Client 1:N Project)"
+        },
+        "managerId": {
+          "type": "string",
+          "description": "Reference to User (Manager). (Relationship: User 1:N Project)"
+        },
+        "startDate": {
+          "type": "string",
+          "description": "The project's start date.",
+          "format": "date-time"
+        },
+        "estimatedEndDate": {
+          "type": "string",
+          "description": "The project's estimated end date.",
+          "format": "date-time"
+        },
+        "status": {
+          "type": "string",
+          "description": "The current status of the project."
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "projectType",
+        "clientId",
+        "managerId",
+        "startDate",
+        "estimatedEndDate",
+        "status"
+      ]
+    },
+    "WeeklyReport": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "WeeklyReport",
+      "type": "object",
+      "description": "Represents a weekly progress report for a project.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the weekly report entity."
+        },
+        "projectId": {
+          "type": "string",
+          "description": "Reference to Project. (Relationship: Project 1:N WeeklyReport)"
+        },
+        "week": {
+          "type": "string",
+          "description": "The ISO week for the report (e.g., '2024-W18')."
+        },
+        "progress": {
+          "type": "number",
+          "description": "The progress percentage (0-100) for the week."
+        },
+        "milestones": {
+          "type": "array",
+          "description": "Array of completed milestones for the week.",
+          "items": {
+            "type": "string"
+          }
+        },
+        "summary": {
+          "type": "string",
+          "description": "A summary of the week's progress."
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp of when the report was created.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "projectId",
+        "week",
+        "progress",
+        "milestones",
+        "summary",
+        "createdAt"
+      ]
+    },
+    "Milestone": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Milestone",
+      "type": "object",
+      "description": "Represents a predefined project milestone.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the milestone."
+        },
+        "name": {
+          "type": "string",
+          "description": "The name of the milestone."
+        },
+        "description": {
+          "type": "string",
+          "description": "A brief description of what the milestone entails."
+        },
+        "projectType": {
+          "type": "string",
+          "description": "The type of project this milestone belongs to (e.g., 'solar', 'wind')."
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "projectType"
+      ]
+    }
+  },
+  "auth": {
+    "providers": [
+      "password",
+      "anonymous"
+    ]
+  },
+  "firestore": {
+    "structure": [
+      {
+        "path": "/users/{userId}",
+        "definition": {
+          "entityName": "User",
+          "schema": {
+            "$ref": "#/backend/entities/User"
+          },
+          "description": "Stores user profile data. A user can read/write their own document. Admins (role == 'admin' in token) can perform 'get' and 'list' operations.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique identifier for the user."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/clients/{clientId}",
+        "definition": {
+          "entityName": "Client",
+          "schema": {
+            "$ref": "#/backend/entities/Client"
+          },
+          "description": "Stores client company data. Only admins (role == 'admin' in token) can create, read (get/list), and write clients.",
+          "params": [
+            {
+              "name": "clientId",
+              "description": "The unique identifier for the client."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/projects/{projectId}",
+        "definition": {
+          "entityName": "Project",
+          "schema": {
+            "$ref": "#/backend/entities/Project"
+          },
+          "description": "Stores project data. Admins and managers (role == 'admin' || role == 'manager' in token) can read (get/list) all projects. Only admins and managers assigned to the project can write to it.",
+          "params": [
+            {
+              "name": "projectId",
+              "description": "The unique identifier for the project."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/projects/{projectId}/weeklyReports/{reportId}",
+        "definition": {
+          "entityName": "WeeklyReport",
+          "schema": {
+            "$ref": "#/backend/entities/WeeklyReport"
+          },
+          "description": "Stores weekly progress reports for a specific project. Accessible by admins or managers assigned to the project.",
+          "params": [
+            {
+              "name": "projectId",
+              "description": "The unique identifier for the project."
+            },
+            {
+              "name": "reportId",
+              "description": "The unique identifier for the weekly report."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/milestones/{milestoneId}",
+        "definition": {
+          "entityName": "Milestone",
+          "schema": {
+            "$ref": "#/backend/entities/Milestone"
+          },
+          "description": "Allows read and write access to all authenticated users.",
+          "params": [
+            {
+              "name": "milestoneId",
+              "description": "The unique identifier for the milestone."
+            }
+          ]
+        }
+      }
+    ],
+    "reasoning": "This Firestore data structure is designed for the Solaris Manager application, focusing on secure authentication, role-based access control, and efficient data management. The structure emphasizes Authorization Independence by avoiding hierarchical `get()` calls in security rules through denormalization. This supports atomic operations and simplifies debugging. Structural Segregation ensures each collection has a homogeneous security posture. Access Modeling uses path-based ownership for user-owned data and membership maps for collaborative access.\n\nThe `/users/{userId}` collection stores user profiles. The `/clients/{clientId}` collection holds client information. The `/projects/{projectId}` collection stores project details. The `projects` collection includes the `managerId` which is used for filtering projects for a manager. The `/projects/{projectId}/weeklyReports/{reportId}` subcollection stores weekly progress reports for each project.\n\nTo ensure Authorization Independence, the `projects` documents could include denormalized fields like `clientName` and `clientContact` if they're frequently needed when querying projects. For collaborative access (if needed in the future), a `members` map could be added to the `projects` collection to manage project access for multiple users. WeeklyReports are nested as a subcollection of Projects, with no denormalized fields since access is limited to managers associated with the project.\n\nQAPs are supported by the segregation of user data, client data, project data, and weekly reports into distinct collections. The path-based ownership model (e.g., `/projects/{projectId}/weeklyReports/{reportId}`) ensures that list operations can be securely performed based on the user's access level and role."
+  }
+}

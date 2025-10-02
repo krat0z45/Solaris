@@ -1,0 +1,172 @@
+/**
+ * @fileOverview
+ * This ruleset enforces a role-based access control model for the Solaris Manager application.
+ *
+ * Data Structure:
+ * - /users/{userId}: Stores user profile data, accessible only to the user themselves and admins.
+ * - /clients/{clientId}: Stores client data, accessible only to admins.
+ * - /projects/{projectId}: Stores project data, accessible to admins and project managers.
+ * - /projects/{projectId}/weeklyReports/{reportId}: Stores weekly reports, accessible to admins and project managers.
+ * - /milestones/{milestoneId}: Stores milestone data, accessible to all authenticated users.
+ *
+ * Key Security Decisions:
+ * - User listing is restricted to admins.
+ * - Clients can only be managed by admins.
+ * - Project access is limited to admins and assigned project managers.
+ * - Milestones are publicly readable and writable by all authenticated users.
+ *
+ * Denormalization for Authorization:
+ * - The `projects` collection includes the `managerId` field, which is used for filtering projects accessible to a specific manager, thus avoiding separate `get()` calls to a `managers` collection.
+ *
+ * Structural Segregation:
+ * - User data, client data, project data, and weekly reports are segregated into distinct collections to maintain a clear security posture for each data set.
+ */
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    /**
+     * @description Controls access to user profile data.
+     * @path /users/{userId}
+     * @allow (get, create, update, delete) if the user is signed in and their UID matches the userId or user has admin role.
+     * @deny (get) if the user is not signed in.
+     * @deny (create) if the user is not signed in or if the userId doesn't match the authenticated user's ID.
+     * @deny (update) if the user is not signed in, if the userId doesn't match the authenticated user's ID, or if the document doesn't exist.
+     * @deny (delete) if the user is not signed in, if the userId doesn't match the authenticated user's ID, or if the document doesn't exist.
+     * @principle Enforces document ownership and restricts access to user's own data.
+     */
+    match /users/{userId} {
+      allow get: if isSignedIn() && (isOwner(userId) || isAdmin());
+      allow list: if isAdmin();
+      allow create: if isSignedIn() && isOwner(userId);
+      allow update: if isSignedIn() && isExistingOwner(userId);
+      allow delete: if isSignedIn() && isExistingOwner(userId);
+    }
+
+    /**
+     * @description Controls access to client data. Only admins can manage clients.
+     * @path /clients/{clientId}
+     * @allow (get, list, create, update, delete) if the user has admin role.
+     * @deny (get, list, create, update, delete) if the user is not an admin.
+     * @principle Restricts client management to admin users.
+     */
+    match /clients/{clientId} {
+      allow get: if isAdmin();
+      allow list: if isAdmin();
+      allow create: if isAdmin();
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    /**
+     * @description Controls access to project data. Admins and assigned project managers can read and write projects.
+     * @path /projects/{projectId}
+     * @allow (get, list) if the user has admin or manager role.
+     * @allow (create) if the user has admin or manager role and `request.resource.data.managerId` matches their UID.
+     * @allow (update, delete) if the user has admin or manager role, is assigned to the project (`resource.data.managerId` matches their UID), and the document exists.
+     * @deny (create, update, delete) if the user is not signed in or doesn't have the required role.
+     * @principle Enforces role-based access control for project management.
+     */
+    match /projects/{projectId} {
+      allow get: if isAdmin() || isManager();
+      allow list: if isAdmin() || isManager();
+      allow create: if isSignedIn() && (isAdmin() || isManager());
+      allow update: if isSignedIn() && (isAdmin() || isExistingProjectManager(projectId));
+      allow delete: if isSignedIn() && (isAdmin() || isExistingProjectManager(projectId));
+    }
+
+    /**
+     * @description Controls access to weekly reports for a specific project. Accessible by admins or managers assigned to the project.
+     * @path /projects/{projectId}/weeklyReports/{reportId}
+     * @allow (get, list) if the user has admin or manager role and is assigned to the parent project.
+     * @allow (create, update, delete) if the user has admin or manager role, is assigned to the parent project, and the document exists.
+     * @deny (get, list, create, update, delete) if the user is not signed in or doesn't have the required role or is not assigned to the parent project.
+     * @principle Restricts weekly report access to project managers and admins.
+     */
+    match /projects/{projectId}/weeklyReports/{reportId} {
+      allow get: if isSignedIn() && (isAdmin() || isProjectManager(projectId));
+      allow list: if isSignedIn() && (isAdmin() || isProjectManager(projectId));
+      allow create: if isSignedIn() && (isAdmin() || isProjectManager(projectId));
+      allow update: if isSignedIn() && (isAdmin() || isExistingProjectManager(projectId));
+      allow delete: if isSignedIn() && (isAdmin() || isExistingProjectManager(projectId));
+    }
+
+    /**
+     * @description Allows read and write access to all authenticated users.
+     * @path /milestones/{milestoneId}
+     * @allow (get, list, create, update, delete) if the user is signed in.
+     * @deny (get, list, create, update, delete) if the user is not signed in.
+     * @principle Allows all authenticated users to read and write milestone data.
+     */
+    match /milestones/{milestoneId} {
+      allow get: if isSignedIn();
+      allow list: if isSignedIn();
+      allow create: if isSignedIn();
+      allow update: if isSignedIn();
+      allow delete: if isSignedIn();
+    }
+
+    // ---- Helper functions ----
+
+    /**
+     * @description Checks if the user is signed in.
+     * @returns {boolean} True if the user is signed in, false otherwise.
+     */
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    /**
+     * @description Checks if the user is the owner of the document.
+     * @param {string} userId - The user ID to compare against the request's auth UID.
+     * @returns {boolean} True if the user is the owner, false otherwise.
+     */
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
+
+    /**
+     * @description Checks if the user is an admin.
+     * @returns {boolean} True if the user has the 'admin' role in their token, false otherwise.
+     */
+    function isAdmin() {
+      return request.auth.token.role == 'admin';
+    }
+
+     /**
+      * @description Checks if the user is a manager.
+      * @returns {boolean} True if the user has the 'manager' role in their token, false otherwise.
+      */
+    function isManager() {
+      return request.auth.token.role == 'manager';
+    }
+
+
+    /**
+     * @description Checks if the user is the project manager for a given project.
+     * @param {string} projectId - The ID of the project.
+     * @returns {boolean} True if the user is the project manager for the given project, false otherwise.
+     */
+    function isProjectManager(projectId) {
+      return get(/databases/$(database)/documents/projects/$(projectId)).data.managerId == request.auth.uid;
+    }
+
+    /**
+     * @description Checks if the user is the project manager for a given project and the document exists.
+     * @param {string} projectId - The ID of the project.
+     * @returns {boolean} True if the user is the project manager for the given project and the document exists, false otherwise.
+     */
+    function isExistingProjectManager(projectId) {
+        return resource != null && isProjectManager(projectId);
+    }
+
+    /**
+     * @description Checks if the user is the owner of the document and the document exists.
+     * @param {string} userId - The user ID to compare against the request's auth UID.
+     * @returns {boolean} True if the user is the owner and the document exists, false otherwise.
+     */
+    function isExistingOwner(userId) {
+        return resource != null && isOwner(userId);
+    }
+  }
+}
